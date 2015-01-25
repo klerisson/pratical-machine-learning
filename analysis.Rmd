@@ -1,0 +1,117 @@
+---
+title: "Analysis"
+author: "Klerisson"
+date: "Sunday, January 25, 2015"
+output: html_document
+---
+
+#Abstract
+
+The objective is to predict, using a machine learning algorithm, a set of 20 human activities between five class.
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+#Data
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv. 
+
+It contains 19622 observations, and contains a variable called classe, which is our target variable. classe can take the values "A", "B", "C", "D" and "E"
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv. 
+
+It contains only the 20 activities that should be "guessed". Of course, the test data does not contain the classe variable in it.
+
+## Modeling
+
+##### The following steps where taken:  
+1. Remove columns with little/no data to tidy up.  
+2. Create Training and test data from traing data for cross validation checking.  
+3. Trial 3 methods Random Forest, GBM and LDA and decided to choose Random Forest method as the Accuracy is greater than the other 2 methods.  
+
+
+## Data Processing  
+```{r echo=FALSE, results='hide'}
+library(ggplot2); library(caret); library(randomForest);
+library(e1071); library(gbm); library(doParallel); 
+library(survival); library(splines); library(plyr)
+```  
+
+##### Load the data. Then, remove the first 6 columns as these can be ignored.  
+
+``` {r echo=TRUE, results='hide'}
+trainData <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+testData <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!", ""))
+
+training <- trainData[, 6:dim(trainData)[2]]
+testing <- testData[, 6:dim(testData)[2]]
+```  
+
+##### Remove columns with more than 95% of NA or "" values from both Training and Testing Data sets.  
+
+``` {r echo=TRUE, results='hide'}
+treshold <- dim(training)[1] * 0.95
+
+goodColumns_training <- !apply(training, 2, function(x) sum(is.na(x)) > treshold  || sum(x=="") > treshold)
+training <- training[, goodColumns_training]
+training_badColumns <- nearZeroVar(training, saveMetrics = TRUE)
+training <- training[, training_badColumns$nzv==FALSE]
+training$classe = factor(training$classe)
+
+training_colname <- colnames(training)
+testing_badColumns <- nearZeroVar(testing, saveMetrics = TRUE)
+testing <- testing[, testing_badColumns$nzv==FALSE]
+testing$classe <- NA
+testing <- testing[training_colname]
+``` 
+
+##### Partition 70% of Training Data set to train the model and the remaining 30% for crossvalidation
+```{r echo=TRUE, results='hide', }
+inTrain <- createDataPartition(training$classe, p = 0.7)[[1]]
+crossv <- training[-inTrain,]
+training <- training[ inTrain,]
+```  
+
+##### Train the model using Random Forest Method. 
+```{r }
+model <- train(classe ~ ., data=training, method="rf")
+```  
+
+##### Predict the model using crossvalidating data set.  
+```{r}
+predTrain <- predict(model, crossv)
+```  
+
+##### Confusion matrix of crossvalidation data set.  
+```{r}
+confusionMatrix(predTrain, crossv$classe)
+``` 
+
+##### Calculate the accuracy.  
+```{r}
+accuracy <- sum(predTrain == crossv$classe) / length(predTrain)
+accuracy;
+```  
+
+##### Finally, apply the model on Testing Data set.  
+
+```{r}
+predTest <- predict(model, testing)
+```  
+
+###### Generate files to submit. 
+
+```{r}
+pml_write_files = function(x){
+        n = length(x)
+        for(i in 1:n){
+                filename = paste0("problem_id_",i,".txt")
+                write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+        }
+}
+
+pml_write_files(predTest)
+
+```  

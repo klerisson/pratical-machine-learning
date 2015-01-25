@@ -2,3 +2,11 @@ base
 lattice
 ggplot2
 caret
+randomForest
+e1071
+survival
+gbm
+foreach
+iterators
+doParallel
+plyr

@@ -75,7 +75,8 @@ training <- training[ inTrain,]
 ```  
 
 ##### Train the model using Random Forest Method. 
-```{r }
+```{r cache=TRUE}
+registerDoParallel(3)
 model <- train(classe ~ ., data=training, method="rf")
 ```  
 
